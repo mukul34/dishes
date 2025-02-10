@@ -25,3 +25,11 @@ export const fetchDishes = async (skip, name, ingredients) => {
     const response = await API.get(`/dish${query}`);
     return response.data.data;
 };
+
+export const fetchDishSuggestions = async (query) => {
+    if (!query.trim()) return []; // Avoid calling API for empty queries
+    const response = await API.get(`/dish/suggestion?query=${query}`);
+    console.log("response-----------", response);
+    return response.data.data.suggestions;
+};
+

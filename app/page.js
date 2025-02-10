@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { fetchDishes } from "../services/api";
+import { fetchDishes, fetchDishSuggestions } from "../services/api";
 import Link from "next/link";
+import { debounce } from "lodash";
 
 export default function Home() {
   const [dishes, setDishes] = useState([]);
@@ -10,6 +11,8 @@ export default function Home() {
   const [totalCount, setTotalCount] = useState(0);
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [nameSearch, setNameSearch] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const limit = 10;
 
   useEffect(() => {
@@ -26,30 +29,76 @@ export default function Home() {
       }
     };
     getDishes();
-  }, [page, nameSearch, ingredientSearch])
+  }, [page, nameSearch, ingredientSearch]);
 
   const totalPages = Math.ceil(totalCount / limit);
 
+  const fetchSuggestions = debounce(async (query) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const results = await fetchDishSuggestions(query);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    } catch (error) {
+      console.error("Error fetching search suggestions:", error);
+    }
+  }, 300);
+
+  const handleNameSearchChange = (e) => {
+    const value = e.target.value;
+    setNameSearch(value);
+    fetchSuggestions(value);
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setNameSearch(suggestion);
+    setShowSuggestions(false);
+  };
+
   return (
-    <div
-      className="p-6 w-full bg-cover bg-center bg-opacity-50 rounded-lg shadow-lg"
-      style={{ backgroundImage: 'url(/bg.jpg)' }}
-    >
-      <div className="p-6 max-w-6xl mx-auto">
+    <>
+      {/* Full-width Background */}
+      <div
+        className="absolute top-0 left-0 w-screen h-screen bg-cover bg-center"
+        style={{ backgroundImage: 'url(/bg.jpg)' }}
+      />
+
+      {/* Main Content */}
+      <div className="relative p-6 max-w-6xl mx-auto">
         <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-beige-300 to-white mb-6 text-center">
           Dish Explorer
         </h1>
 
-        <div className="mb-6">
+        {/* Dish Name Search Input */}
+        <div className="relative mb-6 w-full">
           <input
             type="text"
             placeholder="Search by dish name..."
             value={nameSearch}
-            onChange={(e) => setNameSearch(e.target.value)}
+            onChange={handleNameSearchChange}
             className="w-full px-4 py-2 border-2 border-gray-600 rounded-lg text-white bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out"
           />
+          {showSuggestions && (
+            <ul className="absolute left-0 right-0 mt-2 bg-gray-800 text-white border border-gray-700 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto w-full">
+              {suggestions.map((suggestion, index) => (
+                <li
+                  key={index}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="px-4 py-2 cursor-pointer hover:bg-gray-700"
+                >
+                  {suggestion}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
+        {/* Ingredient Search Input */}
         <div className="mb-6">
           <input
             type="text"
@@ -60,11 +109,11 @@ export default function Home() {
           />
         </div>
 
+        {/* Dishes Grid */}
         {loading ? (
           <p className="text-center text-gray-400">Loading dishes...</p>
         ) : (
           <>
-            {/* Grid Layout */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {dishes.map((dish) => (
                 <div
@@ -85,7 +134,7 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination */}
             <div className="flex justify-center items-center mt-6 space-x-4">
               <button
                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
@@ -108,6 +157,6 @@ export default function Home() {
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
